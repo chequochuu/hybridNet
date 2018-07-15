@@ -56,7 +56,8 @@ class Data():
         self.embeddings = load_embeddings(self.dataDir)
         self.alreadySortedIndex = False
         self.batch_size = batch_size
-        self.index = 0
+        self.train_index = self.ntest
+        self.test_index = 0
         np.random.seed(1234)
         self.permutation = np.random.permutation(self.total)
 
@@ -77,15 +78,29 @@ class Data():
 #        return captions[int(t[0])][int(t[1])] 
 
     def next(self):
-        start = self.index
-        end = self.index + self.batch_size
+        start = self.train_index
+        end = start + self.batch_size
         if end > self.total:
+            start = self.ntest
+            end = start + self.batch_size
+        self.train_index = end
+        idx = self.permutation[start:end]
+        return self.embeddings[idx], self.evalHD[idx], self.evalAttn[idx]
+
+    def next_test(self):
+        start = self.test_index
+        end = start + self.batch_size
+        if end > self.ntest:
             start = 0
-            end = self.batch_size
+        end = start + self.batch_size
         self.index = end
         idx = self.permutation[start:end]
         return self.embeddings[idx], self.evalHD[idx], self.evalAttn[idx]
 
 #    def getEmbedding(self, index)
     
+if __name__ == '__main__':
+    data = Data(64)
+    s1 = data.evalAttn
+    s2 = data.evalHD
 

@@ -5,6 +5,7 @@ import torch.nn.functional as F
 from torch.autograd import Variable
 from load_eval import *
 
+#load = False
 load = True
 batch_size = 64
 lr = 1e-3
@@ -12,8 +13,8 @@ input_dim = 1024
 output_dim = 1
 total_steps = 10000
 save_step = 1000
-hidden_dim1 = 800
-hidden_dim2 = 850
+hidden_dim1 = 1800
+hidden_dim2 = 1150
 cost_func = nn.BCELoss() #MSELoss()
 
 class hybridNN(torch.nn.Module):
@@ -37,20 +38,22 @@ def load_checkpoint(data_dir, filename='checkpoint'):
     checkpoint = torch.load(data_dir + filename)
     return checkpoint['Net'], checkpoint['optim']
 
-N = hybridNN(batch_size, 1024, 1)
-optim = torch.optim.Adam(N.parameters(), lr = lr) 
-data = Data(batch_size)
+def makeEmbedding(embeddings):
+    return Variable(torch.from_numpy(embeddings).float()).to(device)
 
-if load = True 
-    stateN, stateOp = load_checkpoint(data.dataDir)
-    N.load_state_dict(stateN)
-    optim.load_state_dict(stateOp)
+N = hybridNN(batch_size, 1024, 1)
+data = Data(batch_size)
 
 if (torch.cuda.is_available()):
     device = 'cuda'
 else:
     device = 'cpu'
 N = N.to(device) 
+optim = torch.optim.Adam(N.parameters(), lr = lr) 
+if load == True:
+    stateN, stateOp = load_checkpoint(data.dataDir)
+    N.load_state_dict(stateN)
+    optim.load_state_dict(stateOp)
 
 for i in tqdm(range(total_steps)):
     embeddings, inceptionsHD, inceptionsAttn = data.next()
@@ -63,6 +66,14 @@ for i in tqdm(range(total_steps)):
     optim.step()
     N.zero_grad()
     if (i % save_step ==0):
-        print(loss)
+        embeddings, inceptionsHD, inceptionsAttn = data.next_test()
+        embeddings = makeEmbedding(embeddings)
+        tam = inceptionsAttn > inceptionsHD
+        results = Variable(torch.Tensor([[1] if i else [0] for i in tam])).to(device)
+        hyb = [inceptionsHD[i] if outs[i]<0.5 else inceptionsAttn[i] for i in range(outs.__len__())]
+        ground_truth = [inceptionsHD[i] if results[i]<0.5 else inceptionsAttn[i] for i in range(outs.__len__())]
+        hyb = np.array(hyb)
+        ground_truth = np.array(ground_truth)
+        print('loss: {}, HD: {}, ATTN: {}, hybrid:{}, ground_truth: {}'.format(loss, inceptionsHD.sum(), inceptionsAttn.sum(), hyb.sum(), ground_truth.sum()))
         save_checkpoint(N, optim, data.dataDir) 
 
