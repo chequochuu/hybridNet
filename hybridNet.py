@@ -89,5 +89,7 @@ for i in tqdm(range(begin_step, total_steps)):
         save_checkpoint(N, optim,args, score, data.dataDir, allargvs+str(i)) 
         
         if (score > best_score):
-            save_checkpoint(N, optim,args, score, data.dataDir, allargvs+'best') 
+            print(best_score)
+            best_score = score
+            save_checkpoint(N, optim,args, score, data.dataDir+'best/', allargvs+'best') 
             
