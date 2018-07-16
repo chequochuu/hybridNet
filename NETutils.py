@@ -120,8 +120,8 @@ class hybridNN(torch.nn.Module):
         return out
 
 def save_checkpoint(N, optim,args, score, data_dir, filename):
-    state = {'Net': N.state_dict(),
-            'optim': optim.state_dict(),
+    state = {'Net': N,
+            'optim': optim,
             'args': args,
             'score': score}
     torch.save(state, data_dir + filename)
