@@ -1,63 +1,66 @@
+import sys
+import argparse, os
 from tqdm import tqdm
-import torch
-import torch.nn as nn
-import torch.nn.functional as F
-from torch.autograd import Variable
 from load_eval import *
+from NETutils import *
 
-#load = False
-load = True
-batch_size = 64
-lr = 1e-3
+stopword = ['hybridNet.py']#, '--hidden_1', '--hidden_2', '--learning_rate'] 
+allargvs = '' 
+for i in sys.argv[:-1]:
+    allargvs += (i+'_') if i not in stopword else ''
+
+print(allargvs)
+
+parser = argparse.ArgumentParser(description = 'Gans')    
+parser.add_argument('--hidden', type=int, default=1000,
+                    help='hidden size.')
+parser.add_argument('--lu', type=str)
+parser.add_argument('--final_activation', type=str)
+parser.add_argument('--batch_norm', type=str2bool)
+parser.add_argument('--n_res_block', type=int, default=0)
+parser.add_argument('--n_fully', type=int, default=3)
+parser.add_argument('--learning_rate', type=float, default=5e-4)
+parser.add_argument('--init_xavier', type=str2bool)
+parser.add_argument('--batch_size', type=int, default=64)
+parser.add_argument('--cost_func', type=str)
+parser.add_argument('--reuse_weight',type=str2bool)
+parser.add_argument('--iter_load', type=int, default=10000)
+
+args = parser.parse_args()
+
 input_dim = 1024
 output_dim = 1
 total_steps = 10000
 save_step = 1000
-hidden_dim1 = 1800
-hidden_dim2 = 1150
-cost_func = nn.BCELoss() #MSELoss()
-
-class hybridNN(torch.nn.Module):
-    def __init__(self, batch_size, input_dim, output_dim):
-        super(hybridNN, self).__init__()
-        self.fc1 = nn.Linear(input_dim, hidden_dim1) 
-        self.fc2 = nn.Linear(hidden_dim1, hidden_dim2) 
-        self.fc3 = nn.Linear(hidden_dim2, output_dim) 
-    def forward(self, x):
-        x = F.elu(self.fc1(x))
-        x = F.elu(self.fc2(x))
-        x = F.sigmoid(self.fc3(x))
-        return x
-
-def save_checkpoint(N, optim, data_dir, filename='checkpoint'):
-    state = {'Net': N.state_dict(),
-            'optim': optim.state_dict()}
-    torch.save(state, data_dir + filename)
+batch_size = args.batch_size
+lr = args.learning_rate 
+hidden_dim = args.hidden
+if args.cost_func=='BCE':
+    cost_func = nn.BCELoss() #MSELoss()
+else:
+    cost_func = nn.MSELoss()
     
-def load_checkpoint(data_dir, filename='checkpoint'):
-    checkpoint = torch.load(data_dir + filename)
-    return checkpoint['Net'], checkpoint['optim']
-
-def makeEmbedding(embeddings):
-    return Variable(torch.from_numpy(embeddings).float()).to(device)
-
-N = hybridNN(batch_size, 1024, 1)
-data = Data(batch_size)
-
 if (torch.cuda.is_available()):
     device = 'cuda'
 else:
     device = 'cpu'
+N = hybridNN(batch_size, 1024,hidden_dim, 1, args)
+data = Data(batch_size)
 N = N.to(device) 
 optim = torch.optim.Adam(N.parameters(), lr = lr) 
-if load == True:
-    stateN, stateOp = load_checkpoint(data.dataDir)
-    N.load_state_dict(stateN)
-    optim.load_state_dict(stateOp)
 
-for i in tqdm(range(total_steps)):
+begin_step = 0 
+best_score = 0
+if args.reuse_weight == True:
+    begin_step = args.iter_load+1
+    checkpoint = load_checkpoint(data.dataDir, allargvs+str(args.iter_load))
+    N = checkpoint['N']
+    optim = checkpoint['optim']
+    best_score = checkpoint['best_score']
+
+for i in tqdm(range(begin_step, total_steps)):
     embeddings, inceptionsHD, inceptionsAttn = data.next()
-    embeddings = Variable(torch.from_numpy(embeddings).float()).to(device)
+    embeddings = makeEmbedding(embeddings, device)
     tam = inceptionsAttn > inceptionsHD
     results = Variable(torch.Tensor([[1] if i else [0] for i in tam])).to(device)
     outs = N(embeddings) 
@@ -65,15 +68,26 @@ for i in tqdm(range(total_steps)):
     loss.backward()
     optim.step()
     N.zero_grad()
-    if (i % save_step ==0):
+    if (i % save_step == 0):
+        hyb = [inceptionsHD[i] if outs[i]<0.5 else inceptionsAttn[i] for i in range(outs.__len__())]
+        ground_truth = [inceptionsHD[i] if results[i]<0.5 else inceptionsAttn[i] for i in range(outs.__len__())]
+        hyb = np.array(hyb)
+        ground_truth = np.array(ground_truth)
+        print('loss: {}, HD: {}, ATTN: {}, hybrid_train:{}, ground_truth: {}'.format(loss, inceptionsHD.sum(), inceptionsAttn.sum(), hyb.sum(), ground_truth.sum()))
+
         embeddings, inceptionsHD, inceptionsAttn = data.next_test()
-        embeddings = makeEmbedding(embeddings)
+        embeddings = makeEmbedding(embeddings, device)
         tam = inceptionsAttn > inceptionsHD
         results = Variable(torch.Tensor([[1] if i else [0] for i in tam])).to(device)
+        outs = N(embeddings)
         hyb = [inceptionsHD[i] if outs[i]<0.5 else inceptionsAttn[i] for i in range(outs.__len__())]
         ground_truth = [inceptionsHD[i] if results[i]<0.5 else inceptionsAttn[i] for i in range(outs.__len__())]
         hyb = np.array(hyb)
         ground_truth = np.array(ground_truth)
         print('loss: {}, HD: {}, ATTN: {}, hybrid:{}, ground_truth: {}'.format(loss, inceptionsHD.sum(), inceptionsAttn.sum(), hyb.sum(), ground_truth.sum()))
-        save_checkpoint(N, optim, data.dataDir) 
-
+        score = fullTest(N,data, batch_size, device) 
+        save_checkpoint(N, optim,args, score, data.dataDir, allargvs+str(i)) 
+        
+        if (score > best_score):
+            save_checkpoint(N, optim,args, data.dataDir, allargvs+'best') 
+            

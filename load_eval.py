@@ -3,6 +3,14 @@ import numpy as np
 import json
 import pickle
 import h5py
+def str2bool(x):
+    if x == 'True':
+        return True
+    elif x == 'False':
+        return False
+    else:
+        raise(ValueError('must be True or False'))
+
 def formatname(arr):
     for (i,j) in enumerate(arr):
         x = j[0].split('_')
