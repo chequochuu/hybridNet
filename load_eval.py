@@ -52,6 +52,7 @@ class Data():
         self.dataDir = data_dir
         self.evalAttn = load_eval_result(data_dir + 'eval_2933_5_tien.csv', 'csv')
         self.evalHD = load_eval_result(data_dir + 'birds_256_G_epoch_500_inception_score.json', 'json')
+        self.sortIndex()
         self.id = np.array([i[0] for i in self.evalHD])
         self.evalHD = np.array([i[1] for i in self.evalHD])
         self.evalHD = self.evalHD.astype(np.float32)
@@ -69,10 +70,10 @@ class Data():
         np.random.seed(1234)
         self.permutation = np.random.permutation(self.total)
 
-#    def sortIndex(self):
-#        self.evalAttn = sorted(self.evalAttn, key = lambda entry: entry[0]) 
-#        self.evalHD = sorted(self.evalHD, key = lambda entry: entry[0]) 
-#        self.alreadySortedIndex = True
+    def sortIndex(self):
+        self.evalAttn = sorted(self.evalAttn, key = lambda entry: entry[0]) 
+        self.evalHD = sorted(self.evalHD, key = lambda entry: entry[0]) 
+        self.alreadySortedIndex = True
 #
 #    def sortValue_1col(col):
 #        if col == 'HD':
