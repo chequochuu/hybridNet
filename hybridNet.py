@@ -6,7 +6,7 @@ from NETutils import *
 
 stopword = ['hybridNet.py']#, '--hidden_1', '--hidden_2', '--learning_rate'] 
 allargvs = '' 
-for i in sys.argv[:-1]:
+for i in sys.argv[:-4]:
     allargvs += (i+'_') if i not in stopword else ''
 
 print(allargvs)

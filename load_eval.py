@@ -50,13 +50,13 @@ def load_embeddings(data_dir, filename = 'original.h5'):
 class Data():
     def __init__(self, batch_size, data_dir = 'Data/'):
         self.dataDir = data_dir
-        self.evalAttn = load_eval_result(data_dir + 'eval_2933_5_tien.csv', 'csv')
-        self.evalHD = load_eval_result(data_dir + 'birds_256_G_epoch_500_inception_score.json', 'json')
-        self.sortIndex()
-        self.id = np.array([i[0] for i in self.evalHD])
-        self.evalHD = np.array([i[1] for i in self.evalHD])
+        self.tevalAttn = load_eval_result(data_dir + 'eval_2933_5_tien.csv', 'csv')
+        self.tevalHD = load_eval_result(data_dir + 'birds_256_G_epoch_500_inception_score.json', 'json')
+        #self.sortIndex()
+        self.id = np.array([i[0] for i in self.tevalHD])
+        self.evalHD = np.array([i[1] for i in self.tevalHD])
         self.evalHD = self.evalHD.astype(np.float32)
-        self.evalAttn = np.array([i[1] for i in self.evalAttn])
+        self.evalAttn = np.array([i[1] for i in self.tevalAttn])
         self.evalAttn = self.evalAttn.astype(np.float32)
         self.total = self.evalHD.__len__()
         self.ntest = int(self.total*1/5)
@@ -71,8 +71,8 @@ class Data():
         self.permutation = np.random.permutation(self.total)
 
     def sortIndex(self):
-        self.evalAttn = sorted(self.evalAttn, key = lambda entry: entry[0]) 
-        self.evalHD = sorted(self.evalHD, key = lambda entry: entry[0]) 
+        self.tevalAttn = sorted(self.tevalAttn, key = lambda entry: entry[0]) 
+        self.tevalHD = sorted(self.tevalHD, key = lambda entry: entry[0]) 
         self.alreadySortedIndex = True
 #
 #    def sortValue_1col(col):
@@ -102,7 +102,7 @@ class Data():
         if end > self.ntest:
             start = 0
         end = start + self.batch_size
-        self.index = end
+        self.test_index = end
         idx = self.permutation[start:end]
         return self.embeddings[idx], self.evalHD[idx], self.evalAttn[idx]
 
