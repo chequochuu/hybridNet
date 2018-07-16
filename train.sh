@@ -1,14 +1,14 @@
-python -i hybridNet.py\
+python3 -i hybridNet.py\
         --hidden 1000 \
         --lu leaky \
         --final_activation leaky \
         --batch_norm True\
-        --n_res_block 2
-        --n_fully 2
+        --n_res_block 0 \
+        --n_fully 0 \
         --learning_rate 5e-4 \
-        --init_xavier True\
+        --init_xavier False\
         --batch_size 64 \
-        --cost_func BCE \
+        --cost_func MSE \
         --reuse_weight False\
         --iter_load 10000 \
 

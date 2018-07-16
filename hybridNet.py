@@ -30,7 +30,7 @@ args = parser.parse_args()
 
 input_dim = 1024
 output_dim = 1
-total_steps = 10000
+total_steps = 1000000
 save_step = 1000
 batch_size = args.batch_size
 lr = args.learning_rate 
@@ -89,5 +89,5 @@ for i in tqdm(range(begin_step, total_steps)):
         save_checkpoint(N, optim,args, score, data.dataDir, allargvs+str(i)) 
         
         if (score > best_score):
-            save_checkpoint(N, optim,args, data.dataDir, allargvs+'best') 
+            save_checkpoint(N, optim,args, score, data.dataDir, allargvs+'best') 
             

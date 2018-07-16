@@ -78,18 +78,25 @@ class hybridNN(torch.nn.Module):
         #each block include 2 conv layer
         if (args.n_res_block>0):
             self.res = [res_block(2**(i*2), 2**(10-(i*2))) for i in range(args.n_res_block)]
+            self.res = nn.Sequential(*self.res)
             res_out_dim = self.res[-1].out_dims
             res_out_channels = self.res[-1].out_channels
         else:
             res_out_dim = 1024
             res_out_channels = 1
 
-        self.fc = [fully_block(res_out_dim,hidden_dim, i) for i in range(args.n_fully)]
+        if (args.n_fully>0):
+            self.fc = [fully_block(res_out_dim,hidden_dim, i) for i in range(args.n_fully)]
+            self.fc = nn.Sequential(*self.fc)
+            out_dim = hidden_dim
+        else:
+            out_dim = res_out_dim
+
         self.lu = get_activate_func(args.lu)
 
         self.bn = nn.BatchNorm1d(res_out_channels)
 
-        self.final_fc = nn.Linear(hidden_dim, output_dim)
+        self.final_fc = nn.Linear(out_dim, output_dim)
         self.final_fc1 = nn.Linear(res_out_channels, output_dim)
         self.final_activation = get_activate_func(args.final_activation)
         self.args = args
@@ -112,7 +119,7 @@ class hybridNN(torch.nn.Module):
         out = self.final_activation(out)
         return out
 
-def save_checkpoint(N, optim,args, score, data_dir, filename='checkpoint'):
+def save_checkpoint(N, optim,args, score, data_dir, filename):
     state = {'Net': N.state_dict(),
             'optim': optim.state_dict(),
             'args': args,
