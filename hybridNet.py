@@ -31,6 +31,7 @@ args = parser.parse_args()
 input_dim = 1024
 output_dim = 1
 total_steps = 1000000
+print_step = 50
 save_step = 1000
 batch_size = args.batch_size
 lr = args.learning_rate 
@@ -68,7 +69,7 @@ for i in tqdm(range(begin_step, total_steps)):
     loss.backward()
     optim.step()
     N.zero_grad()
-    if (i % save_step == 0):
+    if (i % print_step == 0):
         hyb = [inceptionsHD[i] if outs[i]<0.5 else inceptionsAttn[i] for i in range(outs.__len__())]
         ground_truth = [inceptionsHD[i] if results[i]<0.5 else inceptionsAttn[i] for i in range(outs.__len__())]
         hyb = np.array(hyb)
@@ -86,7 +87,8 @@ for i in tqdm(range(begin_step, total_steps)):
         ground_truth = np.array(ground_truth)
         print('loss: {}, HD: {}, ATTN: {}, hybrid:{}, ground_truth: {}'.format(loss, inceptionsHD.sum(), inceptionsAttn.sum(), hyb.sum(), ground_truth.sum()))
         score = fullTest(N,data, batch_size, device) 
-        save_checkpoint(N, optim,args, score, data.dataDir, allargvs+str(i)) 
+        if (i % print_step  == 0):
+            save_checkpoint(N, optim,args, score, data.dataDir, allargvs+str(i)) 
         
         if (score > best_score):
             print(best_score)

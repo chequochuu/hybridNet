@@ -52,7 +52,7 @@ class Data():
         self.dataDir = data_dir
         self.tevalAttn = load_eval_result(data_dir + 'eval_2933_5_tien.csv', 'csv')
         self.tevalHD = load_eval_result(data_dir + 'birds_256_G_epoch_500_inception_score.json', 'json')
-        #self.sortIndex()
+        self.sortIndex()
         self.id = np.array([i[0] for i in self.tevalHD])
         self.evalHD = np.array([i[1] for i in self.tevalHD])
         self.evalHD = self.evalHD.astype(np.float32)
