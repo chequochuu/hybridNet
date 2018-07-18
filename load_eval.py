@@ -92,6 +92,8 @@ class Data():
         if end > self.total:
             start = self.ntest
             end = start + self.batch_size
+            perm = np.random.permutation(self.ntrain)
+            self.permutation[self.ntest:] = self.permutation[perm + self.ntest]
         self.train_index = end
         idx = self.permutation[start:end]
         return self.embeddings[idx], self.evalHD[idx], self.evalAttn[idx]
