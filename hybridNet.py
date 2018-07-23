@@ -1,4 +1,5 @@
 import sys
+from math import *
 import argparse, os
 from tqdm import tqdm
 from load_eval import *
@@ -26,6 +27,25 @@ parser.add_argument('--cost_func', type=str)
 parser.add_argument('--reuse_weight',type=str2bool)
 parser.add_argument('--iter_load', type=int, default=10000)
 
+def MSELoss(a, b, d):
+    res = (a-b)**2
+    for i in range(d.shape[0]):
+        if (d[i]<0):
+            d[i]*=200
+    #d /= d.std()
+    res = res /abs(d)
+    return res.mean()
+
+def BCELoss(a, b, d):
+    #d -= d.mean()
+    for i in range(d.shape[0]):
+        if (d[i]<0):
+            d[i]*=200
+    d = abs(d)
+    eps = 1e-9
+    res = - d*(a * ((b+eps).log()) + (1-a) * (1-b+eps).log())
+    return res.mean()
+
 args = parser.parse_args()
 
 input_dim = 1024
@@ -38,8 +58,10 @@ lr = args.learning_rate
 hidden_dim = args.hidden
 if args.cost_func=='BCE':
     cost_func = nn.BCELoss() #MSELoss()
+    cost_func =BCELoss #MSELoss()
 else:
-    cost_func = nn.MSELoss()
+    #cost_func = nn.MSELoss()
+    cost_func = MSELoss
     
 if (torch.cuda.is_available()):
     device = 'cuda'
@@ -62,10 +84,13 @@ if args.reuse_weight == True:
 for i in tqdm(range(begin_step, total_steps)):
     embeddings, inceptionsHD, inceptionsAttn = data.next()
     embeddings = makeEmbedding(embeddings, device)
+    inceptionsAttn = torch.Tensor(inceptionsAttn).to(device)
+    inceptionsHD = torch.Tensor(inceptionsHD).to(device)
+
     tam = inceptionsAttn > inceptionsHD
     results = Variable(torch.Tensor([[1] if i else [0] for i in tam])).to(device)
     outs = N(embeddings) 
-    loss = cost_func(outs, results)
+    loss = cost_func(outs, results, (inceptionsAttn - inceptionsHD))
     loss.backward()
     optim.step()
     N.zero_grad()
@@ -90,8 +115,8 @@ for i in tqdm(range(begin_step, total_steps)):
         if (i % print_step  == 0):
             save_checkpoint(N, optim,args, score, data.dataDir, allargvs+str(i)) 
         
+        print('best_score: ',best_score)
         if (score > best_score):
-            print(best_score)
             best_score = score
             save_checkpoint(N, optim,args, score, data.dataDir+'best/', allargvs+'best') 
             
