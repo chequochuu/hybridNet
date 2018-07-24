@@ -36,12 +36,12 @@ def downsample(x, stride):
 class res_block(nn.Module):
     def __init__(self, in_channels, in_dims):
         super(res_block, self).__init__()
-        self.conv1 = nn.Conv1d(in_channels, in_channels*2, 1, 1, 0)
-        self.pooling0 = nn.MaxPool1d(3,2,1)
+        self.conv1 = nn.Conv1d(in_channels, in_channels*2, 3, 2, 1)
+    #    self.pooling0 = nn.MaxPool1d(3,2,1)
         self.bn1 = nn.BatchNorm1d(in_channels*2)
         self.relu = nn.ReLU(inplace=True)
-        self.conv2 = nn.Conv1d(in_channels*2, in_channels*4,1, 1, 0)
-        self.pooling1 = nn.MaxPool1d(3,2,1)
+        self.conv2 = nn.Conv1d(in_channels*2, in_channels*4,3, 2, 1)
+  #      self.pooling1 = nn.MaxPool1d(3,2,1)
         self.bn2 = nn.BatchNorm1d(in_channels*4)
         self.out_channels = in_channels*4
         self.out_dims = in_dims/4
@@ -49,11 +49,11 @@ class res_block(nn.Module):
     def forward(self, x):
         residual = x
         out = self.conv1(x)
-        out = self.pooling0(out)
+  #      out = self.pooling0(out)
         out = self.bn1(out)
         out = self.relu(out)
         out = self.conv2(out)
-        out = self.pooling1(out)
+  #      out = self.pooling1(out)
         out = self.bn2(out)
         residual = downsample(residual, 4)
         out += residual

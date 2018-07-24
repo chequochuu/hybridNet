@@ -47,6 +47,7 @@ def load_embeddings(data_dir, filename = 'original.h5'):
     ret = np.array(ret)
     return ret
 
+# the first ntest use for test, the rest use for train
 class Data():
     def __init__(self, batch_size, data_dir = 'Data/'):
         self.dataDir = data_dir
@@ -65,10 +66,16 @@ class Data():
         self.embeddings = load_embeddings(self.dataDir)
         self.alreadySortedIndex = False
         self.batch_size = batch_size
-        self.train_index = self.ntest
+        self.train_index1 = self.ntest
         self.test_index = 0
         np.random.seed(1234)
         self.permutation = np.random.permutation(self.total)
+        self.permutation[self.ntest:] = self.sortbydiffent(self.permutation[self.ntest:])
+        self.pivotHDbetter = self.ntest
+        while self.evalHD[self.permutation[self.pivotHDbetter]] > self.evalAttn[self.permutation[self.pivotHDbetter]]:
+            self.pivotHDbetter += 1
+        self.train_index2 = self.pivotHDbetter
+        
 
     def sortIndex(self):
         self.tevalAttn = sorted(self.tevalAttn, key = lambda entry: entry[0]) 
@@ -86,17 +93,32 @@ class Data():
 #        t = index.split('_')
 #        return captions[int(t[0])][int(t[1])] 
 
+    def sortbydiffent(self, perm):
+        res = sorted(perm, key = lambda x: self.evalAttn[x] - self.evalHD[x])
+        return res
+
     def next(self):
-        start = self.train_index
-        end = start + self.batch_size
-        if end > self.total:
+        start = self.train_index1
+        end = start +(self.batch_size//2)
+        if end > self.pivotHDbetter:
             start = self.ntest
-            end = start + self.batch_size
-            perm = np.random.permutation(self.ntrain)
-            self.permutation[self.ntest:] = self.permutation[perm + self.ntest]
-        self.train_index = end
+            end = start + self.batch_size//2
+#            shuffle data
+#            perm = np.random.permutation(self.pivotHDbetter - s)
+#            self.permutation[self.ntest:] = self.permutation[perm + self.ntest]
         idx = self.permutation[start:end]
-        return self.embeddings[idx], self.evalHD[idx], self.evalAttn[idx]
+        self.train_index1 = end
+
+        start = self.train_index2
+        end = start + self.batch_size//2
+        if end > self.total:
+            start = self.pivotHDbetter
+            end = start + self.batch_size//2
+        idx2 = self.permutation[start:end]
+        self.train_index2 = end
+
+        concatted_idx = np.concatenate([idx,idx2])
+        return self.embeddings[concatted_idx], self.evalHD[concatted_idx], self.evalAttn[concatted_idx]
 
     def next_test(self):
         start = self.test_index

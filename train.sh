@@ -1,5 +1,5 @@
 python3 -i hybridNet.py\
-        --hidden 500 \
+        --hidden 1500 \
         --lu leaky \
         --final_activation leaky \
         --batch_norm True\

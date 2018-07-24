@@ -29,18 +29,15 @@ parser.add_argument('--iter_load', type=int, default=10000)
 
 def MSELoss(a, b, d):
     res = (a-b)**2
-    for i in range(d.shape[0]):
-        if (d[i]<0):
-            d[i]*=200
     #d /= d.std()
     res = res /abs(d)
     return res.mean()
 
 def BCELoss(a, b, d):
     #d -= d.mean()
-    for i in range(d.shape[0]):
-        if (d[i]<0):
-            d[i]*=200
+#    for i in range(d.shape[0]):
+#        if (d[i]<0):
+            #d[i]*=200
     d = abs(d)
     eps = 1e-9
     res = - d*(a * ((b+eps).log()) + (1-a) * (1-b+eps).log())
@@ -57,11 +54,11 @@ batch_size = args.batch_size
 lr = args.learning_rate 
 hidden_dim = args.hidden
 if args.cost_func=='BCE':
-    cost_func = nn.BCELoss() #MSELoss()
-    cost_func =BCELoss #MSELoss()
+    cost_func = nn.BCELoss(False) #MSELoss()
+#cost_func =BCELoss #MSELoss()
 else:
-    #cost_func = nn.MSELoss()
-    cost_func = MSELoss
+    cost_func = nn.MSELoss(False)
+    #cost_func = MSELoss
     
 if (torch.cuda.is_available()):
     device = 'cuda'
@@ -90,11 +87,15 @@ for i in tqdm(range(begin_step, total_steps)):
     tam = inceptionsAttn > inceptionsHD
     results = Variable(torch.Tensor([[1] if i else [0] for i in tam])).to(device)
     outs = N(embeddings) 
-    loss = cost_func(outs, results, (inceptionsAttn - inceptionsHD))
+    loss = cost_func(outs, results)
+    #loss = cost_func(outs, results, (inceptionsAttn - inceptionsHD))
     loss.backward()
     optim.step()
     N.zero_grad()
     if (i % print_step == 0):
+    #    import ipdb 
+    #    ipdb.set_trace()
+
         hyb = [inceptionsHD[i] if outs[i]<0.5 else inceptionsAttn[i] for i in range(outs.__len__())]
         ground_truth = [inceptionsHD[i] if results[i]<0.5 else inceptionsAttn[i] for i in range(outs.__len__())]
         hyb = np.array(hyb)
