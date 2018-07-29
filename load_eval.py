@@ -51,6 +51,7 @@ def load_embeddings(data_dir, filename = 'original.h5'):
 class Data():
     def __init__(self, batch_size, data_dir = 'Data/'):
         self.save_checkpoint_dir = data_dir + 'save/'
+        self.log_dir = data_dir + 'log/'
         self.dataDir = data_dir
         self.tevalAttn = load_eval_result(data_dir + 'eval_2933_5_tien1.csv', 'csv')
         self.tevalHD = load_eval_result(data_dir + 'birds_256_G_epoch_500_inception_score_25_1.json', 'json') 
@@ -106,31 +107,16 @@ class Data():
         return res
 
     def next(self):
-        HDBetterPortion = self.batch_size*1//3
-        AttnBetterPortion = self.batch_size - HDBetterPortion
         start = self.train_index1
-        end = start + HDBetterPortion
-        if end > self.pivotHDbetter:
-#            shuffle data
-#            perm = np.random.permutation(self.pivotHDbetter - s)
-#            self.permutation[self.ntest:] = self.permutation[perm + self.ntest]
-            np.random.shuffle(self.permutation[self.ntest: self.pivotHDbetter])
+        end = start + self.batch_size
+        if end > self.total:
+            np.random.shuffle(self.permutation[self.ntest: self.total])
             start = self.ntest
-            end = start +  HDBetterPortion
+            end = start +  self.batch_size
         idx = self.permutation[start:end]
         self.train_index1 = end
 
-        start = self.train_index2
-        end = start + AttnBetterPortion 
-        if end > self.total:
-            np.random.shuffle(self.permutation[self.pivotHDbetter:])
-            start = self.pivotHDbetter
-            end = start + AttnBetterPortion
-        idx2 = self.permutation[start:end]
-        self.train_index2 = end
-
-        concatted_idx = np.concatenate([idx,idx2])
-        return self.embeddings[concatted_idx], self.evalHD[concatted_idx], self.evalAttn[concatted_idx]
+        return self.embeddings[idx], self.evalHD[idx], self.evalAttn[idx]
 
     def next_test(self):
         start = self.test_index

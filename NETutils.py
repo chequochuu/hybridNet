@@ -36,15 +36,16 @@ def downsample(x, stride):
 class res_block(nn.Module):
     def __init__(self, in_channels, in_dims):
         super(res_block, self).__init__()
-        self.conv1 = nn.Conv1d(in_channels, in_channels*2, 3, 2, 1)
+        self.conv1 = nn.Conv1d(in_channels, in_channels, 3, 1, 1)
     #    self.pooling0 = nn.MaxPool1d(3,2,1)
-        self.bn1 = nn.BatchNorm1d(in_channels*2)
-        self.relu = nn.ReLU(inplace=True)
-        self.conv2 = nn.Conv1d(in_channels*2, in_channels*4,3, 2, 1)
+        self.bn1 = nn.BatchNorm1d(in_channels)
+        self.relu = F.leaky_relu
+        self.conv2 = nn.Conv1d(in_channels, in_channels,3, 1, 1)
   #      self.pooling1 = nn.MaxPool1d(3,2,1)
-        self.bn2 = nn.BatchNorm1d(in_channels*4)
-        self.out_channels = in_channels*4
+        self.bn2 = nn.BatchNorm1d(in_channels)
+        self.out_channels = in_channels
         self.out_dims = in_dims/4
+        self.downsample = nn.Conv1d(in_channels, in_channels,3, 4, 1)
 
     def forward(self, x):
         residual = x
@@ -55,8 +56,9 @@ class res_block(nn.Module):
         out = self.conv2(out)
   #      out = self.pooling1(out)
         out = self.bn2(out)
-        residual = downsample(residual, 4)
         out += residual
+        out = self.relu(out)
+        out = self.downsample(out)
         out = self.relu(out)
         return out
 
@@ -77,17 +79,19 @@ class hybridNN(torch.nn.Module):
     def __init__(self, batch_size, input_dim,hidden_dim , output_dim, args):
         super(hybridNN, self).__init__()
 
-        self.dropout = nn.Dropout(0.2)
         self.batch_size = batch_size
         #each block include 2 conv layer
         if (args.n_res_block>0):
-            self.res = [res_block(2**(i*2), 2**(10-(i*2))) for i in range(args.n_res_block)]
+            self.res = [res_block(1, 2**(10-(i*2))) for i in range(args.n_res_block)]
             self.res = nn.Sequential(*self.res)
             res_out_dim = self.res[-1].out_dims
             res_out_channels = self.res[-1].out_channels
         else:
             res_out_dim = 1024
             res_out_channels = 1
+
+        self.bn0 = nn.BatchNorm1d(res_out_channels)
+        self.dropout0 = nn.Dropout(0.2)
 
         if (args.n_fully>0):
             self.fc = [fully_block(res_out_dim,hidden_dim, i) for i in range(args.n_fully)]
@@ -98,26 +102,33 @@ class hybridNN(torch.nn.Module):
 
         self.lu = get_activate_func(args.lu)
 
-        self.bn = nn.BatchNorm1d(res_out_channels)
+        self.bn1 = nn.BatchNorm1d(res_out_channels)
+        self.dropout1 = nn.Dropout(0.2)
 
-        self.final_fc = nn.Linear(out_dim, output_dim)
-        self.final_fc1 = nn.Linear(res_out_channels, output_dim)
+#        self.final_fc = nn.Linear(out_dim, output_dim)
+        self.final_fc1 = nn.Linear(res_out_channels * out_dim, output_dim)
         self.final_activation = get_activate_func(args.final_activation)
         self.args = args
         if (args.init_xavier):
             self.apply(init_weight)
 
     def forward(self, x):
-        out = self.dropout(x)
+        #x = x.repeat(1,10,1)
+        out = x
         for i in range(self.args.n_res_block):
             out = self.res[i](out)
+
+        if (self.args.batch_norm):
+            out = self.bn0(out)
+        out = self.dropout0(out)
+
         for i in range(self.args.n_fully):
             out = self.fc[i](out)
             out = self.lu(out)
         if (self.args.batch_norm):
-            out = self.bn(out)
-        out = self.final_fc(out)
-        out = self.lu(out)
+            out = self.bn1(out)
+        out = self.dropout1(out)
+
         out = out.reshape(self.batch_size, -1)
         out = self.final_fc1(out)
         out = self.final_activation(out)
@@ -160,17 +171,23 @@ def fullTestTrain(N, data, batch_size, device):
 
     print('HD: {}, ATTN: {}, hybrid:{}, ground_truth: {}'.format(total_HD, total_Attn, total_hyb, total_ground_truth))
 
-def fullTest(N, data, batch_size, device):
+def fullTest(N, data, batch_size, device, f):
     total_HD = 0
     total_Attn = 0
     total_hyb = 0
     total_ground_truth = 0
+    num = 0 
+    den = 0
     for i in range(int(data.ntest/batch_size)):
         embeddings, inceptionsHD, inceptionsAttn = data.next_test()
         embeddings = makeEmbedding(embeddings, device)
         tam = inceptionsAttn > inceptionsHD
         results = Variable(torch.Tensor([[1] if i else [0] for i in tam])).to(device)
         outs = N(embeddings) 
+        temp0 = [0 if outs[i]<0.5 else 1 for i in range(outs.__len__())] 
+        temp = (temp0 == np.array(results).reshape(-1).astype(int))
+        num += temp.sum()
+        den += temp.__len__()
         hyb = [inceptionsHD[i] if outs[i]<0.5 else inceptionsAttn[i] for i in range(outs.__len__())]
         ground_truth = [inceptionsHD[i] if results[i]<0.5 else inceptionsAttn[i] for i in range(outs.__len__())]
         hyb = np.array(hyb)
@@ -181,5 +198,8 @@ def fullTest(N, data, batch_size, device):
         total_ground_truth += ground_truth.sum()
         #print('loss: {}, HD: {}, ATTN: {}, hybrid:{}, ground_truth: {}'.format(loss, inceptionsHD.sum(), inceptionsAttn.sum(), hyb.sum(), ground_truth.sum()))
 
-    print('HD: {}, ATTN: {}, hybrid:{}, ground_truth: {}'.format(total_HD, total_Attn, total_hyb, total_ground_truth))
+    print('HD_fulltest: {}, ATTN_fulltest: {}, hybrid_fulltest:{}, ground_truth_fulltest: {},'.format(total_HD, total_Attn, total_hyb, total_ground_truth))
+    print('accuracy_fulltest: {}/{}'.format(num, den))
+    f.write('HD_fulltest: {}, ATTN_fulltest: {}, hybrid_fulltest:{}, ground_truth_fulltest: {},'.format(total_HD, total_Attn, total_hyb, total_ground_truth))
+    f.write('accuracy_fulltest: {}/{},'.format(num, den))
     return total_hyb

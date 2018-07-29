@@ -13,6 +13,7 @@ for i in sys.argv[:-4]:
 print(allargvs)
 
 parser = argparse.ArgumentParser(description = 'Gans')    
+parser.add_argument('--description', type=str, default='')
 parser.add_argument('--hidden', type=int, default=1000,
                     help='hidden size.')
 parser.add_argument('--lu', type=str)
@@ -47,7 +48,7 @@ args = parser.parse_args()
 
 input_dim = 1024
 output_dim = 1
-total_steps = 1000000
+total_steps = 150000
 print_step = 50
 save_step = 1000
 batch_size = args.batch_size
@@ -78,6 +79,7 @@ if args.reuse_weight == True:
     optim = checkpoint['optim']
     best_score = checkpoint['best_score']
 
+f = open(data.log_dir + allargvs, 'w')
 for i in tqdm(range(begin_step, total_steps)):
     embeddings, inceptionsHD, inceptionsAttn = data.next()
     embeddings = makeEmbedding(embeddings, device)
@@ -95,29 +97,43 @@ for i in tqdm(range(begin_step, total_steps)):
     if (i % print_step == 0):
     #    import ipdb 
     #    ipdb.set_trace()
+        f.write('###\n')
+        f.write('iteration: {},'.format(i))
 
         hyb = [inceptionsHD[i] if outs[i]<0.5 else inceptionsAttn[i] for i in range(outs.__len__())]
         ground_truth = [inceptionsHD[i] if results[i]<0.5 else inceptionsAttn[i] for i in range(outs.__len__())]
         hyb = np.array(hyb)
         ground_truth = np.array(ground_truth)
-        print('loss: {}, HD: {}, ATTN: {}, hybrid_train:{}, ground_truth: {}'.format(loss, inceptionsHD.sum(), inceptionsAttn.sum(), hyb.sum(), ground_truth.sum()))
+        temp0 = [0 if outs[i]<0.5 else 1 for i in range(outs.__len__())] 
+        temp = (temp0 == np.array(results).reshape(-1).astype(int))
+        print('loss_train: {}, HD_train: {}, ATTN_train: {}, hybrid_train:{}, ground_truth_train: {}'.format(loss, inceptionsHD.sum(), inceptionsAttn.sum(), hyb.sum(), ground_truth.sum()))
+        print('accuracy_train:{}/{},'.format(temp.sum(), temp.__len__()))
+        f.write('loss_train: {}, HD_train: {}, ATTN_train: {}, hybrid_train:{}, ground_truth_train: {},'.format(loss, inceptionsHD.sum(), inceptionsAttn.sum(), hyb.sum(), ground_truth.sum()))
+        f.write('accuracy_train:{}/{},'.format(temp.sum(), temp.__len__()))
 
         embeddings, inceptionsHD, inceptionsAttn = data.next_test()
         embeddings = makeEmbedding(embeddings, device)
         tam = inceptionsAttn > inceptionsHD
         results = Variable(torch.Tensor([[1] if i else [0] for i in tam])).to(device)
         outs = N(embeddings)
+        temp0 = [0 if outs[i]<0.5 else 1 for i in range(outs.__len__())] 
+        temp = (temp0 == np.array(results).reshape(-1).astype(int))
         hyb = [inceptionsHD[i] if outs[i]<0.5 else inceptionsAttn[i] for i in range(outs.__len__())]
         ground_truth = [inceptionsHD[i] if results[i]<0.5 else inceptionsAttn[i] for i in range(outs.__len__())]
         hyb = np.array(hyb)
         ground_truth = np.array(ground_truth)
-        print('loss: {}, HD: {}, ATTN: {}, hybrid:{}, ground_truth: {}'.format(loss, inceptionsHD.sum(), inceptionsAttn.sum(), hyb.sum(), ground_truth.sum()))
-        score = fullTest(N,data, batch_size, device) 
+        print('loss_test: {}, HD_test: {}, ATTN_test: {}, hybrid_test:{}, ground_truth_test: {},'.format(loss, inceptionsHD.sum(), inceptionsAttn.sum(), hyb.sum(), ground_truth.sum()))
+        print('accuracy_test:{}/{},'.format(temp.sum(), temp.__len__()))
+        f.write('loss_test: {}, HD_test: {}, ATTN_test: {}, hybrid_test:{}, ground_truth_test: {},'.format(loss, inceptionsHD.sum(), inceptionsAttn.sum(), hyb.sum(), ground_truth.sum()))
+        f.write('accuracy_test:{}/{},'.format(temp.sum(), temp.__len__()))
+        score = fullTest(N,data, batch_size, device, f) 
         if (i % print_step  == 0):
             save_checkpoint(N, optim,args, score, data.save_checkpoint_dir, allargvs+str(i)) 
         
-        print('best_score: ',best_score)
+        print('best_score: {}'.format(best_score))
+        f.write('best_score: {}'.format(best_score))
         if (score > best_score):
             best_score = score
             save_checkpoint(N, optim,args, score, data.save_checkpoint_dir+'best/', allargvs+'best') 
             
+f.close()
