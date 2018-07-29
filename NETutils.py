@@ -117,7 +117,7 @@ class hybridNN(torch.nn.Module):
         if (self.args.batch_norm):
             out = self.bn(out)
         out = self.final_fc(out)
-        out = self.final_activation(out)
+        out = self.lu(out)
         out = out.reshape(self.batch_size, -1)
         out = self.final_fc1(out)
         out = self.final_activation(out)

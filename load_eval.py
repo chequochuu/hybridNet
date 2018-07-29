@@ -50,10 +50,11 @@ def load_embeddings(data_dir, filename = 'original.h5'):
 # the first ntest use for test, the rest use for train
 class Data():
     def __init__(self, batch_size, data_dir = 'Data/'):
+        self.save_checkpoint_dir = data_dir + 'save/'
         self.dataDir = data_dir
-        self.tevalAttn = load_eval_result(data_dir + 'eval_2933_5_tien.csv', 'csv')
-        self.tevalHD = load_eval_result(data_dir + 'birds_256_G_epoch_500_inception_score.json', 'json')
-        self.sortIndex()
+        self.tevalAttn = load_eval_result(data_dir + 'eval_2933_5_tien1.csv', 'csv')
+        self.tevalHD = load_eval_result(data_dir + 'birds_256_G_epoch_500_inception_score_25_1.json', 'json') 
+        self.sortIndex() 
         self.id = np.array([i[0] for i in self.tevalHD])
         self.evalHD = np.array([i[1] for i in self.tevalHD])
         self.evalHD = self.evalHD.astype(np.float32)
@@ -62,7 +63,7 @@ class Data():
         self.total = self.evalHD.__len__()
         self.ntest = int(self.total*1/5)
         self.ntrain = self.total - self.ntest
-        self.captions = load_captions(self.dataDir)  
+        self.captions = load_captions(self.dataDir).reshape(-1) 
         self.embeddings = load_embeddings(self.dataDir)
         self.alreadySortedIndex = False
         self.batch_size = batch_size
@@ -81,6 +82,13 @@ class Data():
         self.tevalAttn = sorted(self.tevalAttn, key = lambda entry: entry[0]) 
         self.tevalHD = sorted(self.tevalHD, key = lambda entry: entry[0]) 
         self.alreadySortedIndex = True
+
+    def getcaption(self):
+        cap_lists = []
+        for i in range(self.ntest, self.pivotHDbetter):
+            idx = self.permutation[i]
+            cap_lists.append(self.captions[idx])
+        return cap_lists
 #
 #    def sortValue_1col(col):
 #        if col == 'HD':
@@ -98,22 +106,26 @@ class Data():
         return res
 
     def next(self):
+        HDBetterPortion = self.batch_size*1//3
+        AttnBetterPortion = self.batch_size - HDBetterPortion
         start = self.train_index1
-        end = start +(self.batch_size//2)
+        end = start + HDBetterPortion
         if end > self.pivotHDbetter:
-            start = self.ntest
-            end = start + self.batch_size//2
 #            shuffle data
 #            perm = np.random.permutation(self.pivotHDbetter - s)
 #            self.permutation[self.ntest:] = self.permutation[perm + self.ntest]
+            np.random.shuffle(self.permutation[self.ntest: self.pivotHDbetter])
+            start = self.ntest
+            end = start +  HDBetterPortion
         idx = self.permutation[start:end]
         self.train_index1 = end
 
         start = self.train_index2
-        end = start + self.batch_size//2
+        end = start + AttnBetterPortion 
         if end > self.total:
+            np.random.shuffle(self.permutation[self.pivotHDbetter:])
             start = self.pivotHDbetter
-            end = start + self.batch_size//2
+            end = start + AttnBetterPortion
         idx2 = self.permutation[start:end]
         self.train_index2 = end
 
@@ -134,6 +146,7 @@ class Data():
     
 if __name__ == '__main__':
     data = Data(64)
+    zzz = data.getcaption()
     s1 = data.evalAttn
     s2 = data.evalHD
 

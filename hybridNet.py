@@ -73,7 +73,7 @@ begin_step = 0
 best_score = 0
 if args.reuse_weight == True:
     begin_step = args.iter_load+1
-    checkpoint = load_checkpoint(data.dataDir, allargvs+str(args.iter_load))
+    checkpoint = load_checkpoint(data.save_checkpoint_dir, allargvs+str(args.iter_load))
     N = checkpoint['N']
     optim = checkpoint['optim']
     best_score = checkpoint['best_score']
@@ -114,10 +114,10 @@ for i in tqdm(range(begin_step, total_steps)):
         print('loss: {}, HD: {}, ATTN: {}, hybrid:{}, ground_truth: {}'.format(loss, inceptionsHD.sum(), inceptionsAttn.sum(), hyb.sum(), ground_truth.sum()))
         score = fullTest(N,data, batch_size, device) 
         if (i % print_step  == 0):
-            save_checkpoint(N, optim,args, score, data.dataDir, allargvs+str(i)) 
+            save_checkpoint(N, optim,args, score, data.save_checkpoint_dir, allargvs+str(i)) 
         
         print('best_score: ',best_score)
         if (score > best_score):
             best_score = score
-            save_checkpoint(N, optim,args, score, data.dataDir+'best/', allargvs+'best') 
+            save_checkpoint(N, optim,args, score, data.save_checkpoint_dir+'best/', allargvs+'best') 
             
