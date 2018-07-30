@@ -50,7 +50,7 @@ input_dim = 1024
 output_dim = 1
 total_steps = 150000
 print_step = 50
-save_step = 1000
+save_step = 10000
 batch_size = args.batch_size
 lr = args.learning_rate 
 hidden_dim = args.hidden
@@ -127,7 +127,7 @@ for i in tqdm(range(begin_step, total_steps)):
         f.write('loss_test: {}, HD_test: {}, ATTN_test: {}, hybrid_test:{}, ground_truth_test: {},'.format(loss, inceptionsHD.sum(), inceptionsAttn.sum(), hyb.sum(), ground_truth.sum()))
         f.write('accuracy_test:{}/{},'.format(temp.sum(), temp.__len__()))
         score = fullTest(N,data, batch_size, device, f) 
-        if (i % print_step  == 0):
+        if (i % save_step  == 0):
             save_checkpoint(N, optim,args, score, data.save_checkpoint_dir, allargvs+str(i)) 
         
         print('best_score: {}'.format(best_score))

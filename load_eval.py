@@ -1,4 +1,5 @@
 import csv
+import cv2
 import numpy as np
 import json
 import pickle
@@ -37,6 +38,10 @@ def load_eval_result(filename, datatype):
     ret = formatname(ret)
     return ret
 
+def indexiformat(i, f_attn):
+    x = f_attn['list_names'][i].decode('utf8').split('_')
+    return '{:0>4s}_{}'.format(x[0],x[1]) 
+
 def load_captions(data_dir, filename = 'caption_array_extend.pickle'):
     a = pickle.load(open(data_dir + filename,'rb'))
     return a
@@ -51,7 +56,7 @@ def load_embeddings(data_dir, filename = 'original.h5'):
 class Data():
     def __init__(self, batch_size, data_dir = 'Data/'):
         self.save_checkpoint_dir = data_dir + 'save/'
-        self.log_dir = data_dir + 'log/'
+        self.log_dir = data_dir +'log/'
         self.dataDir = data_dir
         self.tevalAttn = load_eval_result(data_dir + 'eval_2933_5_tien1.csv', 'csv')
         self.tevalHD = load_eval_result(data_dir + 'birds_256_G_epoch_500_inception_score_25_1.json', 'json') 
@@ -77,6 +82,17 @@ class Data():
         while self.evalHD[self.permutation[self.pivotHDbetter]] > self.evalAttn[self.permutation[self.pivotHDbetter]]:
             self.pivotHDbetter += 1
         self.train_index2 = self.pivotHDbetter
+        self.HD_images, self.HD_images_index, self.Attn_images, self.Attn_images_index = self.loadImage()
+
+
+    def loadImage(self):
+        f_attn = h5py.File('attn_images.h5', 'r')
+        f_hd = h5py.File('hd_images.h5', 'r')
+        index_attn = np.arange(self.total*5)
+        index_attn = sorted(index_attn, key = lambda i: indexiformat(i, f_attn))
+        index_hd = np.arange(self.total *5)
+        return f_hd['output_256'], index_hd, f_attn['gen_images'], index_attn
+
         
 
     def sortIndex(self):
@@ -107,16 +123,31 @@ class Data():
         return res
 
     def next(self):
+        HDBetterPortion = self.batch_size*1//2
+        AttnBetterPortion = self.batch_size - HDBetterPortion
         start = self.train_index1
-        end = start + self.batch_size
-        if end > self.total:
-            np.random.shuffle(self.permutation[self.ntest: self.total])
+        end = start + HDBetterPortion
+        if end > self.pivotHDbetter:
+#            shuffle data
+#            perm = np.random.permutation(self.pivotHDbetter - s)
+#            self.permutation[self.ntest:] = self.permutation[perm + self.ntest]
+            np.random.shuffle(self.permutation[self.ntest: self.pivotHDbetter])
             start = self.ntest
-            end = start +  self.batch_size
+            end = start +  HDBetterPortion
         idx = self.permutation[start:end]
         self.train_index1 = end
 
-        return self.embeddings[idx], self.evalHD[idx], self.evalAttn[idx]
+        start = self.train_index2
+        end = start + AttnBetterPortion 
+        if end > self.total:
+            np.random.shuffle(self.permutation[self.pivotHDbetter:])
+            start = self.pivotHDbetter
+            end = start + AttnBetterPortion
+        idx2 = self.permutation[start:end]
+        self.train_index2 = end
+
+        concatted_idx = np.concatenate([idx,idx2])
+        return self.embeddings[concatted_idx], self.evalHD[concatted_idx], self.evalAttn[concatted_idx]
 
     def next_test(self):
         start = self.test_index
@@ -127,6 +158,18 @@ class Data():
         self.test_index = end
         idx = self.permutation[start:end]
         return self.embeddings[idx], self.evalHD[idx], self.evalAttn[idx]
+
+    def showImage(self,index):
+        for i in range(5):
+            t = index*5 + i 
+            cv2.imshow('aaa'+ str(i), self.Attn_images[self.Attn_images_index[t]])
+        cv2.waitKey(0)
+        cv2.destroyAllWindows()
+        for i in range(5):
+            t = index*5 + i 
+            cv2.imshow('aaa'+ str(i), self.HD_images[self.HD_images_index[t]])
+        cv2.waitKey(0)
+        cv2.destroyAllWindows()
 
 #    def getEmbedding(self, index)
     
