@@ -32,7 +32,7 @@ def MSELoss(a, b, d):
     res = (a-b)**2
     #d /= d.std()
     res = res /abs(d)
-    return res.mean()
+    return res.max()
 
 def BCELoss(a, b, d):
     #d -= d.mean()
@@ -42,24 +42,24 @@ def BCELoss(a, b, d):
     d = abs(d)
     eps = 1e-9
     res = - d*(a * ((b+eps).log()) + (1-a) * (1-b+eps).log())
-    return res.mean()
+    return res.max()
 
 args = parser.parse_args()
 
 input_dim = 1024
 output_dim = 1
-total_steps = 150000
+total_steps = 300000
 print_step = 50
 save_step = 1000
 batch_size = args.batch_size
 lr = args.learning_rate 
 hidden_dim = args.hidden
 if args.cost_func=='BCE':
-    cost_func = nn.BCELoss(False) #MSELoss()
-#cost_func =BCELoss #MSELoss()
+    #cost_func = nn.BCELoss(False) #MSELoss()
+    cost_func =BCELoss #MSELoss()
 else:
-    cost_func = nn.MSELoss(False)
-    #cost_func = MSELoss
+    #cost_func = nn.MSELoss(False)
+    cost_func = MSELoss
     
 if (torch.cuda.is_available()):
     device = 'cuda'
@@ -89,8 +89,8 @@ for i in tqdm(range(begin_step, total_steps)):
     tam = inceptionsAttn > inceptionsHD
     results = Variable(torch.Tensor([[1] if i else [0] for i in tam])).to(device)
     outs = N(embeddings) 
-    loss = cost_func(outs, results)
-    #loss = cost_func(outs, results, (inceptionsAttn - inceptionsHD))
+    #loss = cost_func(outs, results)
+    loss = cost_func(outs, results, (inceptionsAttn - inceptionsHD))
     loss.backward()
     optim.step()
     N.zero_grad()
