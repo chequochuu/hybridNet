@@ -162,12 +162,12 @@ class Data():
     def showImage(self,index):
         for i in range(5):
             t = index*5 + i 
-            cv2.imshow('aaa'+ str(i), self.Attn_images[self.Attn_images_index[t]])
+            cv2.imshow('attn'+ str(i), self.Attn_images[self.Attn_images_index[t]])
         cv2.waitKey(0)
         cv2.destroyAllWindows()
         for i in range(5):
             t = index*5 + i 
-            cv2.imshow('aaa'+ str(i), self.HD_images[self.HD_images_index[t]])
+            cv2.imshow('hd'+ str(i), self.HD_images[self.HD_images_index[t]])
         cv2.waitKey(0)
         cv2.destroyAllWindows()
 
@@ -178,4 +178,10 @@ if __name__ == '__main__':
     zzz = data.getcaption()
     s1 = data.evalAttn
     s2 = data.evalHD
+    perm = np.arange(data.total)
+    perm = data.sortbydiffent(perm)
+    for i in range(100):
+        print('HD: {}, ATTN: {}'.format(data.evalHD[perm[i]], data.evalAttn[perm[i]]))
+        print(data.captions[perm[i]])
+        data.showImage(perm[i])
 
