@@ -59,7 +59,7 @@ class Data():
         self.log_dir = data_dir +'log/'
         self.dataDir = data_dir
         self.tevalAttn = load_eval_result(data_dir + 'eval_2933_5_tien1.csv', 'csv')
-        self.tevalHD = load_eval_result(data_dir + 'birds_256_G_epoch_500_inception_score_25_1.json', 'json') 
+        self.tevalHD = load_eval_result(data_dir + 'birds_256_G_epoch_500_inception_score_25_2.json', 'json') 
         self.sortIndex() 
         self.id = np.array([i[0] for i in self.tevalHD])
         self.evalHD = np.array([i[1] for i in self.tevalHD])
@@ -87,7 +87,7 @@ class Data():
 
     def loadImage(self):
         f_attn = h5py.File('attn_images.h5', 'r')
-        f_hd = h5py.File('hd_images.h5', 'r')
+        f_hd = h5py.File('hd_images_2.h5', 'r')
         index_attn = np.arange(self.total*5)
         index_attn = sorted(index_attn, key = lambda i: indexiformat(i, f_attn))
         index_hd = np.arange(self.total *5)
@@ -162,16 +162,28 @@ class Data():
     def showImage(self,index):
         for i in range(5):
             t = index*5 + i 
-            cv2.imshow('attn'+ str(i), self.Attn_images[self.Attn_images_index[t]])
+            img = cv2.cvtColor(self.Attn_images[self.Attn_images_index[t]], 4)
+            cv2.imshow('attn'+ str(i), img)
         cv2.waitKey(0)
         cv2.destroyAllWindows()
         for i in range(5):
             t = index*5 + i 
-            cv2.imshow('hd'+ str(i), self.HD_images[self.HD_images_index[t]])
+            img = cv2.cvtColor(self.HD_images[self.HD_images_index[t]], 4)
+            cv2.imshow('hd'+ str(i), img)
         cv2.waitKey(0)
         cv2.destroyAllWindows()
 
 #    def getEmbedding(self, index)
+
+def count(captions):
+    D = {}
+    for i in captions:
+        words = i.split(' ')
+        for j in words:
+            D[j] = D.get(j,0) + 1
+    t = sorted(D.items(), key = lambda x:x[1])
+    return t
+
     
 if __name__ == '__main__':
     data = Data(64)
@@ -180,8 +192,16 @@ if __name__ == '__main__':
     s2 = data.evalHD
     perm = np.arange(data.total)
     perm = data.sortbydiffent(perm)
-    for i in range(100):
-        print('HD: {}, ATTN: {}'.format(data.evalHD[perm[i]], data.evalAttn[perm[i]]))
-        print(data.captions[perm[i]])
-        data.showImage(perm[i])
+    betterCaption = []
+#    i = 0 
+#    with open('betterCaptions.txt' ,'w') as f:
+#        while (data.evalHD[perm[i]] > data.evalAttn[perm[i]]):
+#            f.write(data.captions[perm[i]])
+#            f.write('\n')
+#            i+=1
+#        for i in range(9,100):
+#            print('HD: {}, ATTN: {}'.format(data.evalHD[perm[i]], data.evalAttn[perm[i]]))
+#            print(data.captions[perm[i]])
+#            data.showImage(perm[i])
+#           
 
