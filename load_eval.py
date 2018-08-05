@@ -174,16 +174,6 @@ class Data():
         cv2.destroyAllWindows()
 
 #    def getEmbedding(self, index)
-
-def count(captions):
-    D = {}
-    for i in captions:
-        words = i.split(' ')
-        for j in words:
-            D[j] = D.get(j,0) + 1
-    t = sorted(D.items(), key = lambda x:x[1])
-    return t
-
     
 if __name__ == '__main__':
     data = Data(64)
@@ -192,16 +182,19 @@ if __name__ == '__main__':
     s2 = data.evalHD
     perm = np.arange(data.total)
     perm = data.sortbydiffent(perm)
-    betterCaption = []
-#    i = 0 
-#    with open('betterCaptions.txt' ,'w') as f:
+
+    ## captions is list of caption sorted by HDGan - AttnGan
+    captions = data.captions[perm]
+#    betterCaption = []
+
+#        i = 0 
 #        while (data.evalHD[perm[i]] > data.evalAttn[perm[i]]):
 #            f.write(data.captions[perm[i]])
 #            f.write('\n')
 #            i+=1
-#        for i in range(9,100):
-#            print('HD: {}, ATTN: {}'.format(data.evalHD[perm[i]], data.evalAttn[perm[i]]))
-#            print(data.captions[perm[i]])
-#            data.showImage(perm[i])
-#           
+    #    for i in range(9,100):
+    #        print('HD: {}, ATTN: {}'.format(data.evalHD[perm[i]], data.evalAttn[perm[i]]))
+    #        print(data.captions[perm[i]])
+    #        data.showImage(perm[i])
+            
 
