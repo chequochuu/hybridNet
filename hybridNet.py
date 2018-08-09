@@ -48,7 +48,7 @@ args = parser.parse_args()
 
 input_dim = 1024
 output_dim = 1
-total_steps = 300000
+total_steps = 150000
 print_step = 50
 save_step = 1000
 batch_size = args.batch_size
