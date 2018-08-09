@@ -1,6 +1,6 @@
 python3 -i hybridNet.py\
         --description test \
-        --hidden 1500 \
+        --hidden 2000 \
         --lu leaky \
         --final_activation leaky \
         --batch_norm True\
