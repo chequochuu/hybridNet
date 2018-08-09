@@ -1,4 +1,5 @@
 import csv
+import cv2
 import numpy as np
 import json
 import pickle
@@ -20,22 +21,9 @@ def formatname(arr):
 def makePair(i,j,k):
     return [str(i)+'_'+str(j),k]
 
-def load_eval_result(filename, datatype):
-    if (datatype == 'json'):
-        t = json.load(open(filename,'r'))['mean']
-        ret = [makePair(i,j,t[i*5+j]) for i in range(2933) for j in range(5)]
-    elif datatype == 'csv':
-        with open(filename,'r') as f:
-            ret = []
-            t = csv.reader(f)
-            for i in t:
-                ret.append(i)
-        ret=ret[1:]
-    else:
-        raise ValueError('wtf')
-
-    ret = formatname(ret)
-    return ret
+def indexiformat(i, f_attn):
+    x = f_attn['list_names'][i].decode('utf8').split('_')
+    return '{:0>4s}_{}'.format(x[0],x[1])
 
 def load_captions(data_dir, filename = 'caption_array_extend.pickle'):
     a = pickle.load(open(data_dir + filename,'rb'))
@@ -53,14 +41,9 @@ class Data():
         self.save_checkpoint_dir = data_dir + 'save/'
         self.log_dir = data_dir + 'log/'
         self.dataDir = data_dir
-        self.tevalAttn = load_eval_result(data_dir + 'eval_2933_5_tien1.csv', 'csv')
-        self.tevalHD = load_eval_result(data_dir + 'birds_256_G_epoch_500_inception_score_25_1.json', 'json') 
-        self.sortIndex() 
-        self.id = np.array([i[0] for i in self.tevalHD])
-        self.evalHD = np.array([i[1] for i in self.tevalHD])
-        self.evalHD = self.evalHD.astype(np.float32)
-        self.evalAttn = np.array([i[1] for i in self.tevalAttn])
-        self.evalAttn = self.evalAttn.astype(np.float32)
+        self.evalAttn = self.load_ATTN_result(data_dir, 'attn_scores.h5')
+        self.evalHD = self.load_HD_result(data_dir, 'hd_scores.json')
+
         self.total = self.evalHD.__len__()
         self.ntest = int(self.total*1/5)
         self.ntrain = self.total - self.ntest
@@ -77,7 +60,29 @@ class Data():
         while self.evalHD[self.permutation[self.pivotHDbetter]] > self.evalAttn[self.permutation[self.pivotHDbetter]]:
             self.pivotHDbetter += 1
         self.train_index2 = self.pivotHDbetter
-        
+
+    def loadImage(self, dataDir):
+        f_attn = h5py.File(dataDir + 'attn_images.h5', 'r')
+        f_hd = h5py.File(dataDir + 'hd_images.h5', 'r')
+        index_attn = np.arange(self.total*5)
+        index_attn = sorted(index_attn, key = lambda i: indexiformat(i, f_attn))
+        index_hd = np.arange(self.total *5)
+        return f_hd['output_256'], index_hd, f_attn['gen_images'], index_attn
+
+    def load_HD_result(self, dataDir, fileDir):
+        a = json.load(open(dataDir + fileDir,'r'))
+        arr = np.array(a['mean']).reshape((-1,25)).mean(1)
+        arr = np.exp(arr)
+        return arr
+
+    def load_ATTN_result(self, dataDir, fileDir):
+        filename = dataDir + fileDir
+        f = h5py.File(filename, 'r')
+        arr  = np.array(f['scores'])
+        arr = np.log(arr)
+        arr = arr.reshape((-1,25)).mean(1)
+        arr = np.exp(arr)
+        return arr
 
     def sortIndex(self):
         self.tevalAttn = sorted(self.tevalAttn, key = lambda entry: entry[0]) 
@@ -90,17 +95,6 @@ class Data():
             idx = self.permutation[i]
             cap_lists.append(self.captions[idx])
         return cap_lists
-#
-#    def sortValue_1col(col):
-#        if col == 'HD':
-#            sorted(self.evalHD, key = lambda entry: entry[1]) 
-#        elif col == 'ATTN' :
-#            sorted(self.evalAttn, key = lambda entry: entry[1]) 
-
-
-#    def getSentence(index, captions):
-#        t = index.split('_')
-#        return captions[int(t[0])][int(t[1])] 
 
     def sortbydiffent(self, perm):
         res = sorted(perm, key = lambda x: self.evalAttn[x] - self.evalHD[x])
@@ -127,6 +121,20 @@ class Data():
         self.test_index = end
         idx = self.permutation[start:end]
         return self.embeddings[idx], self.evalHD[idx], self.evalAttn[idx]
+
+    def showImage(self,index):
+        for i in range(25):
+            t = index*25 + i
+            img = cv2.cvtColor(self.Attn_images[t], 4)
+            cv2.imshow('attn'+ str(i), img)
+        cv2.waitKey(0)
+        cv2.destroyAllWindows()
+        for i in range(5):
+            t = index*5 + i
+            img = cv2.cvtColor(self.HD_images[t], 4)
+            cv2.imshow('hd'+ str(i), img)
+        cv2.waitKey(0)
+        cv2.destroyAllWindows()
 
 #    def getEmbedding(self, index)
     
