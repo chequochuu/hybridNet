@@ -1,10 +1,10 @@
 python3 -i hybridNet.py\
-        --description test \
-        --hidden 2000 \
+        --description flex \
+        --hidden 1500 \
         --lu leaky \
         --final_activation leaky \
         --batch_norm True\
-        --n_res_block 0 \
+        --n_res_block 4 \
         --n_fully 0 \
         --learning_rate 1e-4 \
         --init_xavier True\
