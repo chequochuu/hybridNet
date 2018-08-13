@@ -4,8 +4,8 @@ python3 -i hybridNet.py\
         --lu leaky \
         --final_activation leaky \
         --batch_norm True\
-        --n_res_block 4 \
-        --n_fully 0 \
+        --n_res_block 0 \
+        --n_fully 1 \
         --learning_rate 1e-4 \
         --init_xavier True\
         --batch_size 64 \

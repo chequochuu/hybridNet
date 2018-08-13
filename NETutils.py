@@ -114,6 +114,7 @@ class hybridNN(torch.nn.Module):
 
     def forward(self, x):
         #x = x.repeat(1,10,1)
+        batch_size = x.shape[0]
         out = x
         for i in range(self.args.n_res_block):
             out = self.res[i](out)
@@ -129,7 +130,7 @@ class hybridNN(torch.nn.Module):
             out = self.bn1(out)
         out = self.dropout1(out)
 
-        out = out.reshape(self.batch_size, -1)
+        out = out.reshape(batch_size, -1)
         out = self.final_fc1(out)
         out = self.final_activation(out)
         return out

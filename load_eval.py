@@ -1,9 +1,26 @@
+import os
 import csv
 import cv2
 import numpy as np
 import json
 import pickle
 import h5py
+
+def writeText(img, text):
+    font                   = cv2.FONT_HERSHEY_SIMPLEX
+    bottomLeftCornerOfText = (10,10)
+    fontScale              = 0.5
+    fontColor              = (0,0,255)
+    lineType               = 2
+
+    img = cv2.putText(img,text,
+        bottomLeftCornerOfText,
+        font,
+        fontScale,
+        fontColor,
+        lineType)
+    return img
+
 def str2bool(x):
     if x == 'True':
         return True
@@ -21,9 +38,12 @@ def formatname(arr):
 def makePair(i,j,k):
     return [str(i)+'_'+str(j),k]
 
-def indexiformat(i, f_attn):
-    x = f_attn['list_names'][i].decode('utf8').split('_')
-    return '{:0>4s}_{}'.format(x[0],x[1])
+def getlistname(h5array):
+    t = np.array(h5array).reshape(-1)
+    t = [i.decode('utf8') for i in t]
+    t = [i[:i.find('.')].split('_') for i in t]
+    t = ['{:0>5s}_{:0>2s}'.format(x[0],x[1]) for x in t]
+    return np.array(t)
 
 def load_captions(data_dir, filename = 'caption_array_extend.pickle'):
     a = pickle.load(open(data_dir + filename,'rb'))
@@ -41,8 +61,8 @@ class Data():
         self.save_checkpoint_dir = data_dir + 'save/'
         self.log_dir = data_dir + 'log/'
         self.dataDir = data_dir
-        self.evalAttn = self.load_ATTN_result(data_dir, 'attn_scores.h5')
-        self.evalHD = self.load_HD_result(data_dir, 'hd_scores.json')
+        self.evalAttn, self.full_attn = self.load_ATTN_result(data_dir, 'attn_scores.h5')
+        self.evalHD, self.full_hd = self.load_HD_result(data_dir, 'hd_scores.json')
 
         self.total = self.evalHD.__len__()
         self.ntest = int(self.total*1/5)
@@ -61,28 +81,34 @@ class Data():
             self.pivotHDbetter += 1
         self.train_index2 = self.pivotHDbetter
 
+        ## data analize
+        self.hd_images, self.index_hd, self.attn_images, self.index_attn = self.loadImage('Data/')
+
     def loadImage(self, dataDir):
         f_attn = h5py.File(dataDir + 'attn_images.h5', 'r')
         f_hd = h5py.File(dataDir + 'hd_images.h5', 'r')
-        index_attn = np.arange(self.total*5)
-        index_attn = sorted(index_attn, key = lambda i: indexiformat(i, f_attn))
-        index_hd = np.arange(self.total *5)
+        index_attn = np.arange(self.total*25)
+        list_names = getlistname(f_attn['list_names'])
+
+        index_attn = sorted(index_attn, key = lambda i:list_names[i])
+        index_hd = np.arange(self.total *25)
         return f_hd['output_256'], index_hd, f_attn['gen_images'], index_attn
 
     def load_HD_result(self, dataDir, fileDir):
         a = json.load(open(dataDir + fileDir,'r'))
-        arr = np.array(a['mean']).reshape((-1,25)).mean(1)
-        arr = np.exp(arr)
-        return arr
+        arr = np.array(a['mean'])
+        arr1 = arr.reshape((-1,25)).mean(1)
+        arr1 = np.exp(arr1)
+        return arr1, np.exp(arr)
 
     def load_ATTN_result(self, dataDir, fileDir):
         filename = dataDir + fileDir
         f = h5py.File(filename, 'r')
         arr  = np.array(f['scores'])
         arr = np.log(arr)
-        arr = arr.reshape((-1,25)).mean(1)
-        arr = np.exp(arr)
-        return arr
+        arr1 = arr.reshape((-1,25)).mean(1)
+        arr1 = np.exp(arr1)
+        return arr1, np.exp(arr)
 
     def sortIndex(self):
         self.tevalAttn = sorted(self.tevalAttn, key = lambda entry: entry[0]) 
@@ -97,7 +123,7 @@ class Data():
         return cap_lists
 
     def sortbydiffent(self, perm):
-        res = sorted(perm, key = lambda x: self.evalAttn[x] - self.evalHD[x])
+        res = sorted(perm, key = lambda x: self.full_attn[x] - self.full_hd[x])
         return res
 
     def next(self):
@@ -122,25 +148,42 @@ class Data():
         idx = self.permutation[start:end]
         return self.embeddings[idx], self.evalHD[idx], self.evalAttn[idx]
 
-    def showImage(self,index):
-        for i in range(25):
-            t = index*25 + i
-            img = cv2.cvtColor(self.Attn_images[t], 4)
-            cv2.imshow('attn'+ str(i), img)
-        cv2.waitKey(0)
-        cv2.destroyAllWindows()
-        for i in range(5):
-            t = index*5 + i
-            img = cv2.cvtColor(self.HD_images[t], 4)
-            cv2.imshow('hd'+ str(i), img)
-        cv2.waitKey(0)
-        cv2.destroyAllWindows()
+    def showImage(self,index, idx2):
+        print(data.captions[index//25])
+        img_attn = cv2.cvtColor(self.attn_images[self.index_attn[index]], 4)
+        img_hd = cv2.cvtColor(self.hd_images[self.index_hd[index]], 4)
+        img = np.concatenate([img_attn, img_hd], 1)
+        #img = writeText(img, data.captions[index//25]) 
+        #cv2.imshow('hd'+ str(i), img)
 
-#    def getEmbedding(self, index)
-    
+        return img
+#        while True :
+#            t = cv2.waitKey(0)
+#            print(t)
+#            if (t == 110):
+#                break
+#            if (t == 115):
+#                name = input()
+#                fileDir = saveImgDir + name
+#                os.makedirs(fileDir, exist_ok = True)
+#                cv2.imwrite(fileDir + '/attn{}.png'.format(index), img_attn)
+#                cv2.imwrite(fileDir + '/hd{}.png'.format(index), img_hd)
+#                break
+#                
+#        cv2.destroyAllWindows()
+
+    def getcaptionbyindex(captions, idx):
+        return captions[idx//25]
+
 if __name__ == '__main__':
     data = Data(64)
-    zzz = data.getcaption()
-    s1 = data.evalAttn
-    s2 = data.evalHD
+    perm = np.arange(data.full_hd.__len__())
+    perm = data.sortbydiffent(perm)
+    for i in range(0,10000,1):
+        img1 = data.showImage(perm[i], i)
+#        img2 = data.showImage(perm[i+1], i+1)
+#        img3 = data.showImage(perm[i+2], i+2)
+#        img = np.concatenate([img1,img2,img3], 0)
 
+        saveImgDir = 'Data/savesingleIMG/'
+        cv2.imwrite(saveImgDir + '/{}.png'.format(i), img1)
