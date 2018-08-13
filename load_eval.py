@@ -1,4 +1,5 @@
 import os
+import torch
 import csv
 import cv2
 import numpy as np
@@ -148,11 +149,23 @@ class Data():
         idx = self.permutation[start:end]
         return self.embeddings[idx], self.evalHD[idx], self.evalAttn[idx]
 
-    def showImage(self,index, idx2):
+    def showImage(self,Net , index):
         print(data.captions[index//25])
+        embeddings = data.embedding[index//25]
+        choose = Net(embedding)
+        if (choose >= 0.5):
+            choose = ''
+        else :
+            choose = ''
+        
         img_attn = cv2.cvtColor(self.attn_images[self.index_attn[index]], 4)
         img_hd = cv2.cvtColor(self.hd_images[self.index_hd[index]], 4)
-        img = np.concatenate([img_attn, img_hd], 1)
+        if  choose == 'attn':
+            img_hybrid = img_attn
+        elif choose == 'hd':
+            img_hybrid = img_hd
+        
+        img = np.concatenate([img_attn, img_hd, img_hybrid], 0)
         #img = writeText(img, data.captions[index//25]) 
         #cv2.imshow('hd'+ str(i), img)
 
@@ -179,11 +192,15 @@ if __name__ == '__main__':
     data = Data(64)
     perm = np.arange(data.full_hd.__len__())
     perm = data.sortbydiffent(perm)
-    for i in range(0,10000,1):
-        img1 = data.showImage(perm[i], i)
+    t = torch.load('Data/save/best/--description_flex_--hidden_1500_--lu_leaky_--final_activation_leaky_--batch_norm_True_--n_res_block_0_--n_fully_1_--learning_rate_1e-4_--init_xavier_True_--batch_size_64_--cost_func_MSE_best')
+    t
+
+    for i in range(0,0000,1):
+        img1 = data.showImage(perm[i])
 #        img2 = data.showImage(perm[i+1], i+1)
 #        img3 = data.showImage(perm[i+2], i+2)
 #        img = np.concatenate([img1,img2,img3], 0)
 
         saveImgDir = 'Data/savesingleIMG/'
         cv2.imwrite(saveImgDir + '/{}.png'.format(i), img1)
+        
