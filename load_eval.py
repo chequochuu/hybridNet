@@ -1,3 +1,4 @@
+from tqdm import tqdm
 import os
 import torch
 import csv
@@ -149,14 +150,19 @@ class Data():
         idx = self.permutation[start:end]
         return self.embeddings[idx], self.evalHD[idx], self.evalAttn[idx]
 
-    def showImage(self,Net , index):
-        print(data.captions[index//25])
-        embeddings = data.embedding[index//25]
+    def showImage(self,Net , index, idx2, f):
+        sentences = str(idx2) +' '+data.captions[index//25]
+        f.write(sentences)
+        f.write('\n')
+        
+        print(sentences)
+        embedding = data.embeddings[index//25].reshape(1,1,-1)
+        embedding = torch.Tensor(embedding).to('cuda')
         choose = Net(embedding)
         if (choose >= 0.5):
-            choose = ''
+            choose = 'attn'
         else :
-            choose = ''
+            choose = 'hd'
         
         img_attn = cv2.cvtColor(self.attn_images[self.index_attn[index]], 4)
         img_hd = cv2.cvtColor(self.hd_images[self.index_hd[index]], 4)
@@ -165,8 +171,9 @@ class Data():
         elif choose == 'hd':
             img_hybrid = img_hd
         
-        img = np.concatenate([img_attn, img_hd, img_hybrid], 0)
-        #img = writeText(img, data.captions[index//25]) 
+        img = img_hybrid
+        img = np.concatenate([img_attn, img_hd], 0)
+        #img = writeText(img, sentences) 
         #cv2.imshow('hd'+ str(i), img)
 
         return img
@@ -193,14 +200,29 @@ if __name__ == '__main__':
     perm = np.arange(data.full_hd.__len__())
     perm = data.sortbydiffent(perm)
     t = torch.load('Data/save/best/--description_flex_--hidden_1500_--lu_leaky_--final_activation_leaky_--batch_norm_True_--n_res_block_0_--n_fully_1_--learning_rate_1e-4_--init_xavier_True_--batch_size_64_--cost_func_MSE_best')
-    t
+    Net = t['Net']
 
-    for i in range(0,0000,1):
-        img1 = data.showImage(perm[i])
-#        img2 = data.showImage(perm[i+1], i+1)
-#        img3 = data.showImage(perm[i+2], i+2)
-#        img = np.concatenate([img1,img2,img3], 0)
+    count = 0
+    bigImg = None
+    fcap = open('captien.txt', 'w')
+    arr = [117, 142, 262, 203, 330, 520, 941, 1602, 1604, 1618, 1619, 1653, 1654, 1689, 1749, 1780, 1842, 1925, 1928, 1980, 1982, 2001, 2002]
+    arr = [364625, 364626, 364642, 364672, 364802, 364925, 364930, 364949, 364964, 364965, 364981, 364994, 365008, 365132, 365192, 365194, 365325, 365326, 365408, 365409, 365477, 365478, 365479, 365925]
+    #arr = [365008, 365192, 365325, 365326, 365477]
+    for i in tqdm(arr):
+        img = data.showImage(Net, perm[i], i, fcap)
+        if (count == 0):
+            bigImg = np.copy(img)
+        else:
+            bigImg = np.concatenate([bigImg, img],1)
 
-        saveImgDir = 'Data/savesingleIMG/'
-        cv2.imwrite(saveImgDir + '/{}.png'.format(i), img1)
+        count +=1
+        if (count == 6):
+            saveImgDir = 'Data/hybridIMG/'
+            cv2.imwrite(saveImgDir + '/{}.png'.format(i), bigImg)
+            count = 0
+        
+    saveImgDir = 'Data/hybridIMG/'
+    cv2.imwrite(saveImgDir + '/{}.png'.format(i), bigImg)
+    count = 0
+
         
